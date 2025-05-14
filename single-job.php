@@ -849,35 +849,83 @@ jQuery(document).ready(function($) {
     });
     
     // キープボタン処理
-    $('.keep-button').on('click', function() {
-        var postId = <?php echo $post_id; ?>;
+$('.keep-button').on('click', function() {
+    var postId = <?php echo $post_id; ?>;
+    var button = $(this);
+    
+    <?php if (is_user_logged_in()) : ?>
+        // ログイン済みユーザーの場合はAJAXでサーバーに保存
+        $.ajax({
+            url: '<?php echo admin_url('admin-ajax.php'); ?>',
+            type: 'POST',
+            data: {
+                action: 'toggle_job_favorite',
+                job_id: postId,
+                nonce: '<?php echo wp_create_nonce('job_favorite_nonce'); ?>'
+            },
+            beforeSend: function() {
+                button.prop('disabled', true);
+            },
+            success: function(response) {
+                if (response.success) {
+                    if (response.data.favorited) {
+                        button.text('★ キープ済み');
+                        button.css('background-color', '#fff3e0');
+                    } else {
+                        button.text('★ キープ');
+                        button.css('background-color', '#fff');
+                    }
+                } else {
+                    alert('エラーが発生しました: ' + response.data.message);
+                }
+            },
+            error: function() {
+                alert('通信エラーが発生しました。');
+            },
+            complete: function() {
+                button.prop('disabled', false);
+            }
+        });
+    <?php else : ?>
+        // 未ログインユーザーの場合はlocalStorageを使用
         var keepedJobs = localStorage.getItem('keepedJobs') ? JSON.parse(localStorage.getItem('keepedJobs')) : [];
         
         if (keepedJobs.includes(postId)) {
-            // 既にキープされている場合は削除
             keepedJobs = keepedJobs.filter(function(id) {
                 return id !== postId;
             });
-            $(this).text('★ キープ');
-            $(this).css('background-color', '#fff');
+            button.text('★ キープ');
+            button.css('background-color', '#fff');
         } else {
-            // キープに追加
             keepedJobs.push(postId);
-            $(this).text('★ キープ済み');
-            $(this).css('background-color', '#fff3e0');
+            button.text('★ キープ済み');
+            button.css('background-color', '#fff3e0');
         }
         
         localStorage.setItem('keepedJobs', JSON.stringify(keepedJobs));
-    });
+    <?php endif; ?>
+});
+
+// 既にキープされているかチェック
+var currentPostId = <?php echo $post_id; ?>;
+
+<?php if (is_user_logged_in()) : ?>
+    // ログイン済みユーザーの場合はユーザーメタから取得
+    var userFavorites = <?php echo json_encode(get_user_meta(get_current_user_id(), 'user_favorites', true) ?: array()); ?>;
     
-    // 既にキープされているかチェック
-    var currentPostId = <?php echo $post_id; ?>;
+    if (userFavorites.includes(currentPostId)) {
+        $('.keep-button').text('★ キープ済み');
+        $('.keep-button').css('background-color', '#fff3e0');
+    }
+<?php else : ?>
+    // 未ログインユーザーの場合はlocalStorageから取得
     var storedJobs = localStorage.getItem('keepedJobs') ? JSON.parse(localStorage.getItem('keepedJobs')) : [];
     
     if (storedJobs.includes(currentPostId)) {
         $('.keep-button').text('★ キープ済み');
         $('.keep-button').css('background-color', '#fff3e0');
     }
+<?php endif; ?>
     
     // お問い合わせボタン処理
     $('.contact-button').on('click', function() {
