@@ -1,6 +1,6 @@
 <?php
 /**
- * 求人アーカイブ・検索結果表示用テンプレート
+ * Template Name:  求人アーカイブ・検索結果表示用テンプレート
  */
 get_header();
 
@@ -293,80 +293,154 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             
             <!-- 現在の検索条件タグを表示 -->
-            <?php if (!empty($conditions)): ?>
-            <div class="current-filters">
-                <div class="filter-tags">
-                    <?php
-                    // エリア
-                    if (!empty($location_slug)) {
-                        $location_term = get_term_by('slug', $location_slug, 'job_location');
-                        if ($location_term) {
-                            $remove_url = remove_filter_from_url('location');
-                            echo '<div class="filter-tag">';
-                            echo '<span class="filter-label">エリア:</span> ';
-                            echo esc_html($location_term->name);
-                            echo '<a href="' . esc_url($remove_url) . '" class="remove-filter">&times;</a>';
-                            echo '</div>';
+<?php if (!empty($conditions)): ?>
+<div class="current-filters">
+    <h4>現在の検索条件：</h4>
+    <div class="filter-tags">
+        <?php
+        // エリア
+        if (!empty($location_slug)) {
+            $location_term = get_term_by('slug', $location_slug, 'job_location');
+            if ($location_term) {
+                // 現在のURLから特定のパラメータのみ削除する
+                $current_url = $_SERVER['REQUEST_URI'];
+                // LocationパラメータをURLから削除するための正規表現
+                $pattern = '/\/location\/[^\/]+/';
+                $remove_url = preg_replace($pattern, '', $current_url);
+                // 連続するスラッシュを単一のスラッシュに置換
+                $remove_url = preg_replace('/\/+/', '/', $remove_url);
+                // URLが/jobs/で終わる場合は、保持
+                if ($remove_url === '/jobs') {
+                    $remove_url = '/jobs/';
+                }
+                
+                echo '<div class="filter-tag">';
+                echo '<span class="filter-label">エリア:</span> ';
+                echo esc_html($location_term->name);
+                echo '<a href="' . esc_url(home_url($remove_url)) . '" class="remove-filter">&times;</a>';
+                echo '</div>';
+            }
+        }
+        
+        // 職種
+        if (!empty($position_slug)) {
+            $position_term = get_term_by('slug', $position_slug, 'job_position');
+            if ($position_term) {
+                // 現在のURLから特定のパラメータのみ削除する
+                $current_url = $_SERVER['REQUEST_URI'];
+                // Positionパラメータを削除
+                $pattern = '/\/position\/[^\/]+/';
+                $remove_url = preg_replace($pattern, '', $current_url);
+                // 連続するスラッシュを単一のスラッシュに置換
+                $remove_url = preg_replace('/\/+/', '/', $remove_url);
+                // URLが/jobs/で終わる場合は、保持
+                if ($remove_url === '/jobs') {
+                    $remove_url = '/jobs/';
+                }
+                
+                echo '<div class="filter-tag">';
+                echo '<span class="filter-label">職種:</span> ';
+                echo esc_html($position_term->name);
+                echo '<a href="' . esc_url(home_url($remove_url)) . '" class="remove-filter">&times;</a>';
+                echo '</div>';
+            }
+        }
+        
+        // 雇用形態
+        if (!empty($job_type_slug)) {
+            $job_type_term = get_term_by('slug', $job_type_slug, 'job_type');
+            if ($job_type_term) {
+                // 現在のURLから特定のパラメータのみ削除する
+                $current_url = $_SERVER['REQUEST_URI'];
+                // Typeパラメータを削除
+                $pattern = '/\/type\/[^\/]+/';
+                $remove_url = preg_replace($pattern, '', $current_url);
+                // 連続するスラッシュを単一のスラッシュに置換
+                $remove_url = preg_replace('/\/+/', '/', $remove_url);
+                // URLが/jobs/で終わる場合は、保持
+                if ($remove_url === '/jobs') {
+                    $remove_url = '/jobs/';
+                }
+                
+                echo '<div class="filter-tag">';
+                echo '<span class="filter-label">雇用形態:</span> ';
+                echo esc_html($job_type_term->name);
+                echo '<a href="' . esc_url(home_url($remove_url)) . '" class="remove-filter">&times;</a>';
+                echo '</div>';
+            }
+        }
+        
+        // 施設形態
+        if (!empty($facility_type_slug)) {
+            $facility_type_term = get_term_by('slug', $facility_type_slug, 'facility_type');
+            if ($facility_type_term) {
+                // 現在のURLから特定のパラメータのみ削除する
+                $current_url = $_SERVER['REQUEST_URI'];
+                // Facilityパラメータを削除
+                $pattern = '/\/facility\/[^\/]+/';
+                $remove_url = preg_replace($pattern, '', $current_url);
+                // 連続するスラッシュを単一のスラッシュに置換
+                $remove_url = preg_replace('/\/+/', '/', $remove_url);
+                // URLが/jobs/で終わる場合は、保持
+                if ($remove_url === '/jobs') {
+                    $remove_url = '/jobs/';
+                }
+                
+                echo '<div class="filter-tag">';
+                echo '<span class="filter-label">施設形態:</span> ';
+                echo esc_html($facility_type_term->name);
+                echo '<a href="' . esc_url(home_url($remove_url)) . '" class="remove-filter">&times;</a>';
+                echo '</div>';
+            }
+        }
+        
+        // 特徴（単一または複数）
+        if (!empty($feature_slugs)) {
+            foreach ($feature_slugs as $slug) {
+                $feature_term = get_term_by('slug', $slug, 'job_feature');
+                if ($feature_term) {
+                    // クエリパラメータから特定の特徴のみを削除
+                    $current_url = $_SERVER['REQUEST_URI'];
+                    $query_string = parse_url($current_url, PHP_URL_QUERY);
+                    
+                    if ($query_string) {
+                        // クエリ文字列がある場合（features[]パラメータがある）
+                        parse_str($query_string, $query_params);
+                        if (isset($query_params['features']) && is_array($query_params['features'])) {
+                            // 削除したい特徴を配列から除外
+                            $query_params['features'] = array_diff($query_params['features'], array($slug));
+                            // 新しいクエリ文字列を構築
+                            $new_query_string = http_build_query($query_params);
+                            $path = strtok($current_url, '?');
+                            $remove_url = empty($query_params['features']) ? $path : $path . '?' . $new_query_string;
+                        } else {
+                            $remove_url = $current_url;
+                        }
+                    } else {
+                        // クエリ文字列がない場合（単一特徴パラメータの場合）
+                        // Featureパラメータを削除
+                        $pattern = '/\/feature\/[^\/]+/';
+                        $remove_url = preg_replace($pattern, '', $current_url);
+                        // 連続するスラッシュを単一のスラッシュに置換
+                        $remove_url = preg_replace('/\/+/', '/', $remove_url);
+                        // URLが/jobs/で終わる場合は、保持
+                        if ($remove_url === '/jobs') {
+                            $remove_url = '/jobs/';
                         }
                     }
                     
-                    // 職種
-                    if (!empty($position_slug)) {
-                        $position_term = get_term_by('slug', $position_slug, 'job_position');
-                        if ($position_term) {
-                            $remove_url = remove_filter_from_url('position');
-                            echo '<div class="filter-tag">';
-                            echo '<span class="filter-label">職種:</span> ';
-                            echo esc_html($position_term->name);
-                            echo '<a href="' . esc_url($remove_url) . '" class="remove-filter">&times;</a>';
-                            echo '</div>';
-                        }
-                    }
-                    
-                    // 雇用形態
-                    if (!empty($job_type_slug)) {
-                        $job_type_term = get_term_by('slug', $job_type_slug, 'job_type');
-                        if ($job_type_term) {
-                            $remove_url = remove_filter_from_url('type');
-                            echo '<div class="filter-tag">';
-                            echo '<span class="filter-label">雇用形態:</span> ';
-                            echo esc_html($job_type_term->name);
-                            echo '<a href="' . esc_url($remove_url) . '" class="remove-filter">&times;</a>';
-                            echo '</div>';
-                        }
-                    }
-                    
-                    // 施設形態
-                    if (!empty($facility_type_slug)) {
-                        $facility_type_term = get_term_by('slug', $facility_type_slug, 'facility_type');
-                        if ($facility_type_term) {
-                            $remove_url = remove_filter_from_url('facility');
-                            echo '<div class="filter-tag">';
-                            echo '<span class="filter-label">施設形態:</span> ';
-                            echo esc_html($facility_type_term->name);
-                            echo '<a href="' . esc_url($remove_url) . '" class="remove-filter">&times;</a>';
-                            echo '</div>';
-                        }
-                    }
-                    
-                    // 特徴（単一または複数）
-                    if (!empty($feature_slugs)) {
-                        foreach ($feature_slugs as $slug) {
-                            $feature_term = get_term_by('slug', $slug, 'job_feature');
-                            if ($feature_term) {
-                                $remove_url = remove_feature_from_url($slug);
-                                echo '<div class="filter-tag">';
-                                echo '<span class="filter-label">特徴:</span> ';
-                                echo esc_html($feature_term->name);
-                                echo '<a href="' . esc_url($remove_url) . '" class="remove-filter">&times;</a>';
-                                echo '</div>';
-                            }
-                        }
-                    }
-                    ?>
-                </div>
-            </div>
-            <?php endif; ?>
+                    echo '<div class="filter-tag">';
+                    echo '<span class="filter-label">特徴:</span> ';
+                    echo esc_html($feature_term->name);
+                    echo '<a href="' . esc_url(home_url($remove_url)) . '" class="remove-filter">&times;</a>';
+                    echo '</div>';
+                }
+            }
+        }
+        ?>
+    </div>
+</div>
+<?php endif; ?>
             
             <!-- 検索フォームを表示 -->
             <?php get_template_part('search-form'); ?>

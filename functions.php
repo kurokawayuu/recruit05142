@@ -497,7 +497,7 @@ function remove_filter_from_url($filter_to_remove) {
         $feature_slugs[] = $job_feature_slug;
     }
     
-    // 削除するフィルターを処理
+    // 削除するフィルターを処理 - 指定されたフィルターのみを空にする
     switch ($filter_to_remove) {
         case 'location':
             $location_slug = '';
@@ -512,8 +512,9 @@ function remove_filter_from_url($filter_to_remove) {
             $facility_type_slug = '';
             break;
         case 'feature':
+            // 特徴フィルターのみを削除
             $job_feature_slug = '';
-            $feature_slugs = array(); // 全特徴をクリア
+            $feature_slugs = array();
             break;
     }
     
@@ -521,6 +522,7 @@ function remove_filter_from_url($filter_to_remove) {
     $url_parts = array();
     $query_params = array();
     
+    // 各フィルターが空でなければURLパーツに追加
     if (!empty($location_slug)) {
         $url_parts[] = 'location/' . $location_slug;
     }
@@ -541,20 +543,14 @@ function remove_filter_from_url($filter_to_remove) {
         $url_parts[] = 'feature/' . $job_feature_slug;
     }
     
-    // 複数特徴はクエリパラメータとして追加
-    if (!empty($feature_slugs) && $filter_to_remove !== 'feature') {
-        foreach ($feature_slugs as $feature) {
-            $query_params[] = 'features[]=' . urlencode($feature);
-        }
-    }
-    
     // URLの構築
     $base_url = home_url('/jobs/');
     
+    // パスがある場合はそれを追加
     if (!empty($url_parts)) {
         $path = implode('/', $url_parts);
         $base_url .= $path . '/';
-    } else if (!empty($query_params)) {
+    } else if (!empty($feature_slugs)) {
         // 他の条件がなく特徴のみが残っている場合は特徴専用エンドポイントを使う
         $base_url .= 'features/';
     } else {
@@ -562,7 +558,14 @@ function remove_filter_from_url($filter_to_remove) {
         return home_url('/jobs/');
     }
     
-    // クエリパラメータを追加
+    // 複数特徴はクエリパラメータとして追加
+    if (!empty($feature_slugs) && $filter_to_remove !== 'feature') {
+        foreach ($feature_slugs as $feature) {
+            $query_params[] = 'features[]=' . urlencode($feature);
+        }
+    }
+    
+    // クエリパラメータの追加
     if (!empty($query_params)) {
         $base_url .= '?' . implode('&', $query_params);
     }
