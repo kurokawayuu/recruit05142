@@ -25,50 +25,53 @@
   <div class="search-content">
     <form id="job-search-form" method="get">
       <!-- メイン検索部分（エリアと職種のみ） -->
-      <div class="main-search-section">
-        <div class="search-row">
-          <!-- エリア選択 -->
-          <div class="search-col">
-            <div class="search-group">
-              <div class="search-label">
-                <span class="label-icon"><i class="fas fa-map-marker-alt"></i></span>
-                <span class="label-text">エリア</span>
-              </div>
-              <div class="selection-field" id="area-field">
-                <div class="selection-display">
-                  <span class="selection-placeholder">エリアを選択</span>
-                </div>
-                <input type="hidden" name="location" id="location-input" value="">
-                <input type="hidden" name="location_name" id="location-name-input" value="">
-                <input type="hidden" name="location_term_id" id="location-term-id-input" value="">
-              </div>
-            </div>
-          </div>
-          
-          <!-- 職種選択 -->
-          <div class="search-col">
-            <div class="search-group">
-              <div class="search-label">
-                <span class="label-icon"><i class="fas fa-briefcase"></i></span>
-                <span class="label-text">職種</span>
-              </div>
-              <div class="selection-field" id="position-field">
-                <div class="selection-display">
-                  <span class="selection-placeholder">職種を選択</span>
-                </div>
-                <input type="hidden" name="position" id="position-input" value="">
-                <input type="hidden" name="position_name" id="position-name-input" value="">
-                <input type="hidden" name="position_term_id" id="position-term-id-input" value="">
-              </div>
-            </div>
-          </div>
+      <!-- メイン検索部分（エリアと職種のみ） -->
+<div class="main-search-section">
+  
+  
+  <div class="search-row">
+    <!-- エリア選択 -->
+    <div class="search-col">
+      <div class="search-group">
+        <div class="search-label">
+          <span class="label-icon"><i class="fas fa-map-marker-alt"></i></span>
+          <span class="label-text">エリア</span>
         </div>
-        
-        <div class="search-actions">
-          <button type="button" id="search-btn" class="search-button">検索する</button>
-          <button type="button" id="detail-toggle-btn" class="detail-button">詳細を指定</button>
+        <div class="selection-field" id="area-field">
+          <div class="selection-display">
+            <span class="selection-placeholder">エリアを選択</span>
+          </div>
+          <input type="hidden" name="location" id="location-input" value="">
+          <input type="hidden" name="location_name" id="location-name-input" value="">
+          <input type="hidden" name="location_term_id" id="location-term-id-input" value="">
         </div>
       </div>
+    </div>
+    
+    <!-- 職種選択 -->
+    <div class="search-col">
+      <div class="search-group">
+        <div class="search-label">
+          <span class="label-icon"><i class="fas fa-briefcase"></i></span>
+          <span class="label-text">職種</span>
+        </div>
+        <div class="selection-field" id="position-field">
+          <div class="selection-display">
+            <span class="selection-placeholder">職種を選択</span>
+          </div>
+          <input type="hidden" name="position" id="position-input" value="">
+          <input type="hidden" name="position_name" id="position-name-input" value="">
+          <input type="hidden" name="position_term_id" id="position-term-id-input" value="">
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="search-actions">
+    <button type="button" id="search-btn" class="search-button">検索する</button>
+    <button type="button" id="detail-toggle-btn" class="detail-button">詳細を指定</button>
+  </div>
+</div>
       
       <!-- 詳細検索セクション（初期状態では非表示） -->
       <div class="detail-search-section" style="display: none;">
@@ -125,6 +128,22 @@
             <input type="hidden" name="job_feature" id="job-feature-input" value="">
           </div>
         </div>
+		  
+		  <!-- キーワード検索フィールド追加 -->
+  <div class="search-row">
+    <div class="search-col">
+      <div class="search-group">
+        <div class="search-label">
+          <span class="label-icon"><i class="fas fa-search"></i></span>
+          <span class="label-text">キーワード</span>
+        </div>
+        <div class="keyword-input-field">
+          <input type="text" name="s" id="keyword-input" placeholder="キーワードを入力" value="<?php echo get_search_query(); ?>">
+        </div>
+      </div>
+    </div>
+  </div>
+		  
       </div>
     </form>
   </div>
