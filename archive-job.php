@@ -580,7 +580,7 @@ $is_favorite = is_array($favorites) && in_array(get_the_ID(), $favorites);
                                 <?php echo $is_favorite ? 'キープ済み' : 'キープ'; ?>
                             </button>
                         <?php else: ?>
-                            <a href="<?php echo wp_login_url(get_permalink()); ?>" class="keep-button">
+                            <a href="<?php echo home_url('/register/'); ?>" class="keep-button">
                                 <span class="star"></span>キープ
                             </a>
                         <?php endif; ?>

@@ -88,8 +88,8 @@ get_header(); ?>
                                 echo '<div class="notice notice-success"><p>プロフィール情報を更新しました。</p></div>';
                             }
                             
-                            // WP-Membersのユーザー編集フォーム
-                            echo do_shortcode('[wpmem_form user_edit redirect_to="' . add_query_arg(['updated' => 'profile', '_tab' => 'profile-edit'], get_permalink()) . '"]');
+                            // WP-Membersのユーザー編集フォーム（リダイレクト先をデフォルトタブに設定）
+echo do_shortcode('[wpmem_form user_edit redirect_to="' . get_permalink() . '?updated=profile"]');
                             ?>
                         </section>
                         <?php
@@ -250,77 +250,601 @@ get_header(); ?>
                         // デフォルトの表示（レコメンド求人など）
                         ?>
                         <section id="recommended-jobs" class="member-section">
-                            <div class="section-header">
-                                <h2><i class="fas fa-briefcase"></i>あなたのエリア・職種に合った求人</h2>
+    <div class="section-header">
+        <h2><i class="fas fa-briefcase"></i>あなたのエリア・職種に合った求人</h2>
+    </div>
+    
+    <?php
+    // ユーザーの登録情報からエリアと職種を取得
+    $user_prefecture = get_user_meta($current_user_id, 'prefectures', true);
+    $user_city = get_user_meta($current_user_id, 'municipalities', true); // 市区町村
+    $user_job_type = get_user_meta($current_user_id, 'jobtype', true);
+
+    if ($user_prefecture || $user_job_type) : // どちらか一方でも情報があれば検索を実行
+        // 基本的なクエリ引数
+        $args = array(
+            'post_type'      => 'job', // 正しい投稿タイプ名
+            'posts_per_page' => 5,
+            'post_status'    => 'publish',
+        );
+        
+        $tax_query = array();
+        
+        // エリア（都道府県または市区町村）で絞り込み
+        if (!empty($user_prefecture)) {
+            $location_query = array(
+                'taxonomy' => 'job_location', // 正しいタクソノミー名
+                'field'    => 'name',
+                'terms'    => array($user_prefecture),
+            );
+            
+            // 市区町村があれば、それも条件に含める
+            if (!empty($user_city)) {
+                $location_query['terms'][] = $user_city;
+                // OR条件で検索（都道府県または市区町村に一致）
+                $location_query['operator'] = 'IN';
+            }
+            
+            $tax_query[] = $location_query;
+        }
+        
+        // 職種で絞り込み
+        if (!empty($user_job_type)) {
+            $tax_query[] = array(
+                'taxonomy' => 'job_position', // 正しいタクソノミー名
+                'field'    => 'name',
+                'terms'    => $user_job_type,
+            );
+        }
+        
+        // 複数のタクソノミー条件がある場合はANDで結合
+        if (count($tax_query) > 1) {
+            $tax_query['relation'] = 'AND';
+        }
+        
+        // tax_queryを設定
+        if (!empty($tax_query)) {
+            $args['tax_query'] = $tax_query;
+        }
+        
+        $recommended_jobs_query = new WP_Query($args);
+
+        if ($recommended_jobs_query->have_posts()) :
+            ?>
+            <div class="job-cards-container">
+                <?php while ($recommended_jobs_query->have_posts()) : $recommended_jobs_query->the_post(); 
+                    // カスタムフィールドデータの取得
+                    $facility_name = get_post_meta(get_the_ID(), 'facility_name', true);
+                    $facility_company = get_post_meta(get_the_ID(), 'facility_company', true);
+                    $job_content_title = get_post_meta(get_the_ID(), 'job_content_title', true);
+                    $salary_range = get_post_meta(get_the_ID(), 'salary_range', true);
+                    $salary_type = get_post_meta(get_the_ID(), 'salary_type', true);
+                    $facility_address = get_post_meta(get_the_ID(), 'facility_address', true);
+                    
+                    // タクソノミーの取得
+                    $facility_types = get_the_terms(get_the_ID(), 'facility_type');
+                    $job_features = get_the_terms(get_the_ID(), 'job_feature');
+                    $job_types = get_the_terms(get_the_ID(), 'job_type');
+                    $job_positions = get_the_terms(get_the_ID(), 'job_position');
+                    
+                    // 施設形態のチェック
+                    $has_jidou = false;    // 児童発達支援フラグ
+                    $has_houkago = false;  // 放課後等デイサービスフラグ
+
+                    if ($facility_types && !is_wp_error($facility_types)) {
+                        foreach ($facility_types as $type) {
+                            // 組み合わせタイプのチェック
+                            if ($type->slug === 'jidou-houkago') {
+                                // 児童発達支援・放課後等デイの場合は両方表示
+                                $has_jidou = true;
+                                $has_houkago = true;
+                            } 
+                            // 児童発達支援のみのチェック
+                            else if ($type->slug === 'jidou') {
+                                $has_jidou = true;
+                            } 
+                            // 放課後等デイサービスのみのチェック
+                            else if ($type->slug === 'houkago') {
+                                $has_houkago = true;
+                            }
+                            
+                            // 従来の拡張スラッグもサポート
+                            else if (in_array($type->slug, ['jidou-hattatsu', 'jidou-hattatsu-shien', 'child-development-support'])) {
+                                $has_jidou = true;
+                            }
+                            else if (in_array($type->slug, ['houkago-day', 'houkago-dayservice', 'after-school-day-service'])) {
+                                $has_houkago = true;
+                            }
+                        }
+                    }
+                    
+                    // 雇用形態に基づくカラークラスを設定
+                    $employment_color_class = '';
+                    if ($job_types && !is_wp_error($job_types)) {
+                        switch($job_types[0]->slug) {
+                            case 'full-time':
+                            case 'seishain': // 正社員
+                                $employment_color_class = 'full-time-color';
+                                break;
+                            case 'part-time':
+                            case 'part':
+                            case 'arubaito': // パート・アルバイト
+                                $employment_color_class = 'part-time-color';
+                                break;
+                            case 'contract':
+                            case 'keiyaku': // 契約社員
+                                $employment_color_class = 'contract-color';
+                                break;
+                            case 'temporary':
+                            case 'haken': // 派遣社員
+                                $employment_color_class = 'temporary-color';
+                                break;
+                            default:
+                                $employment_color_class = '';
+                        }
+                    }
+                ?>
+                
+                <div class="job-card">
+                    <!-- 上部コンテンツ：左右に分割 -->
+                    <div class="job-content">
+                        <!-- 左側：サムネイル画像、施設形態アイコン、特徴タグ -->
+                        <div class="left-content">
+                            <!-- サムネイル画像 -->
+                            <div class="job-image">
+                                <?php if (has_post_thumbnail()): ?>
+                                    <?php the_post_thumbnail('medium'); ?>
+                                <?php else: ?>
+                                    <img src="https://via.placeholder.com/300x200" alt="<?php echo esc_attr($facility_name); ?>">
+                                <?php endif; ?>
                             </div>
                             
-                            <?php
-                            // ユーザーの登録情報からエリアと職種を取得
-                            $user_prefecture = get_user_meta($current_user_id, 'prefectures', true);
-                            $user_city = get_user_meta($current_user_id, 'municipalities', true); // 市区町村も使う場合
-                            $user_job_type = get_user_meta($current_user_id, 'jobtype', true);
-
-                            if ($user_prefecture && $user_job_type) :
-                                $args = array(
-                                    'post_type'      => 'job_listing', // 求人情報の投稿タイプ名
-                                    'posts_per_page' => 5,             // 表示件数
-                                    'tax_query'      => array(
-                                        'relation' => 'AND', // 複数のタクソノミー条件をANDで結ぶ
-                                        array(
-                                            'taxonomy' => 'job_area',    // エリアのタクソノミースラッグ
-                                            'field'    => 'name',        // または 'slug' や 'term_id'
-                                            'terms'    => $user_prefecture,
-                                        ),
-                                        array(
-                                            'taxonomy' => 'job_category', // 職種のタクソノミースラッグ
-                                            'field'    => 'name',         // または 'slug' や 'term_id'
-                                            'terms'    => $user_job_type,
-                                        ),
-                                    ),
-                                );
-                                $recommended_jobs_query = new WP_Query($args);
-
-                                if ($recommended_jobs_query->have_posts()) :
-                            ?>
-                                    <div class="job-list-container">
-                                        <ul class="job-list">
-                                            <?php while ($recommended_jobs_query->have_posts()) : $recommended_jobs_query->the_post(); ?>
-                                                <li class="job-item">
-                                                    <a href="<?php the_permalink(); ?>" class="job-link">
-                                                        <div class="job-title"><?php the_title(); ?></div>
-                                                        <div class="job-meta">
-                                                            <?php
-                                                            // 例: 勤務地タクソノミーの表示
-                                                            $terms = get_the_terms(get_the_ID(), 'job_location_taxonomy'); // 実際のタクソノミースラッグに置き換え
-                                                            if ($terms && !is_wp_error($terms)) {
-                                                                echo '<span class="location"><i class="fas fa-map-marker-alt"></i> ';
-                                                                foreach ($terms as $term) {
-                                                                    echo esc_html($term->name) . ' ';
-                                                                }
-                                                                echo '</span>';
-                                                            }
-                                                            ?>
-                                                        </div>
-                                                    </a>
-                                                </li>
-                                            <?php endwhile; ?>
-                                        </ul>
-                                        <div class="more-link">
-                                            <a href="<?php echo esc_url(home_url('/jobs/')); ?>" class="button">すべての求人を見る</a>
-                                        </div>
-                                    </div>
+                            <!-- 施設形態を画像アイコン -->
+                            <div class="facility-icons">
+                                <?php if ($has_houkago): ?>
+                                <!-- 放デイアイコン -->
+                                <div class="facility-icon">
+                                    <img src="<?php echo get_stylesheet_directory_uri(); ?>/img/day.png" alt="放デイ">
+                                </div>
+                                <?php endif; ?>
+                                
+                                <?php if ($has_jidou): ?>
+                                <!-- 児発支援アイコン -->
+                                <div class="facility-icon red-icon">
+                                    <img src="<?php echo get_stylesheet_directory_uri(); ?>/img/support.png" alt="児発支援">
+                                </div>
+                                <?php endif; ?>
+                            </div>
+                            
+                            <!-- 特徴タクソノミータグ - 3つまで表示 -->
+                            <?php if ($job_features && !is_wp_error($job_features)): ?>
+                            <div class="tags-container">
+                                <?php 
+                                $features_count = 0;
+                                foreach ($job_features as $feature):
+                                    if ($features_count < 3):
+                                        // プレミアム特徴の判定（例：高収入求人など）
+                                        $premium_class = (in_array($feature->slug, ['high-salary', 'bonus-available'])) ? 'premium' : '';
+                                ?>
+                                    <span class="tag <?php echo $premium_class; ?>"><?php echo esc_html($feature->name); ?></span>
                                 <?php
-                                    wp_reset_postdata();
-                                else :
-                                    echo '<div class="no-jobs"><p>現在、合致する求人は見つかりませんでした。</p></div>';
-                                endif; // $recommended_jobs_query->have_posts()
-                            else :
-                                echo '<div class="no-profile-info">';
-                                echo '<p>希望エリアと職種の登録がありません。</p>';
-                                echo '</div>';
-                            endif; // $user_prefecture && $user_job_type
-                            ?>
-                        </section>
+                                        $features_count++;
+                                    endif;
+                                endforeach; 
+                                ?>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                        
+                        <!-- 右側：運営会社名、施設名、本文詳細 -->
+                        <div class="right-content">
+                            <!-- 会社名と雇用形態を横に並べる -->
+                            <div class="company-section">
+                                <span class="company-name"><?php echo esc_html($facility_company); ?></span>
+                                <?php if ($job_types && !is_wp_error($job_types)): ?>
+                                <div class="employment-type <?php echo $employment_color_class; ?>">
+                                    <?php echo esc_html($job_types[0]->name); ?>
+                                </div>
+                                <?php endif; ?>
+                            </div>
+                            
+                            <!-- 施設名を会社名の下に配置 -->
+                            <h1 class="job-title"><?php echo esc_html($facility_name); ?></h1>
+                            
+                            <h2 class="job-subtitle"><?php echo esc_html($job_content_title); ?></h2>
+                            
+                            <p class="job-description">
+                                <?php echo wp_trim_words(get_the_content(), 40, '...'); ?>
+                            </p>
+                            
+                            <!-- 本文の下に区切り線を追加 -->
+                            <div class="divider"></div>
+                            
+                            <!-- 職種、給料、住所情報 -->
+                            <div class="job-info">
+                                <?php if ($job_positions && !is_wp_error($job_positions)): ?>
+                                <div class="info-item">
+                                    <span class="info-icon"><i class="fa-solid fa-user"></i></span>
+                                    <span><?php echo esc_html($job_positions[0]->name); ?></span>
+                                </div>
+                                <?php endif; ?>
+                                
+                                <div class="info-item">
+                                    <span class="info-icon"><i class="fa-solid fa-money-bill-wave"></i></span>
+                                    <span>
+                                        <?php 
+                                            // 賃金形態の表示（月給/時給）
+                                            if ($salary_type === 'MONTH') {
+                                                echo '月給 ';
+                                            } elseif ($salary_type === 'HOUR') {
+                                                echo '時給 ';
+                                            }
+                                            
+                                            echo esc_html($salary_range);
+                                            
+                                            // 円表示がなければ追加
+                                            if (mb_strpos($salary_range, '円') === false) {
+                                                echo '円';
+                                            }
+                                        ?>
+                                    </span>
+                                </div>
+                                
+                                <div class="info-item">
+                                    <span class="info-icon"><i class="fa-solid fa-location-dot"></i></span>
+                                    <span><?php echo esc_html($facility_address); ?></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 区切り線 -->
+                    <div class="divider"></div>
+                    
+                    <!-- ボタンエリア -->
+                    <div class="buttons-container">
+                        <?php if (is_user_logged_in()): 
+                            // お気に入り状態の確認
+                            $user_id = get_current_user_id();
+                            $favorites = get_user_meta($user_id, 'user_favorites', true); 
+                            $is_favorite = is_array($favorites) && in_array(get_the_ID(), $favorites);
+                        ?>
+                            <button class="keep-button <?php echo $is_favorite ? 'kept' : ''; ?>" data-job-id="<?php echo get_the_ID(); ?>">
+                                <span class="star"><i class="fa-solid fa-star"></i></span>
+                                <?php echo $is_favorite ? 'キープ済み' : 'キープ'; ?>
+                            </button>
+                        <?php else: ?>
+                            <a href="<?php echo wp_login_url(get_permalink()); ?>" class="keep-button">
+                                <span class="star"><i class="fa-solid fa-star"></i></span>キープ
+                            </a>
+                        <?php endif; ?>
+                        
+                        <a href="<?php the_permalink(); ?>" class="detail-view-button">詳細をみる</a>
+                    </div>
+                </div>
+                <?php endwhile; ?>
+                
+                <div class="more-link">
+                    <a href="<?php echo esc_url(home_url('/jobs/')); ?>" class="button">すべての求人を見る</a>
+                </div>
+            </div>
+            <?php
+            wp_reset_postdata();
+        else :
+            echo '<div class="no-jobs"><p>現在、あなたの希望条件に合致する求人は見つかりませんでした。</p></div>';
+        endif; // $recommended_jobs_query->have_posts()
+    else :
+        echo '<div class="no-profile-info">';
+        echo '<p>希望エリアと職種の登録がありません。プロフィール編集から設定してください。</p>';
+        echo '</div>';
+    endif; // $user_prefecture || $user_job_type
+    ?>
+</section>
+
+<!-- 求人カード用のスタイルをページに追加 -->
+<style>
+/* 雇用形態に基づくカラー設定 */
+.employment-type {
+    background-color: #90CAF9; /* デフォルト色 */
+    color: white;
+    padding: 6px 15px;
+    border-radius: 30px; /* より丸みを増す */
+    font-size: 14px;
+    margin-left: auto;
+    display: inline-block;
+}
+.employment-type.full-time-color {
+    background-color: #4CAF50 !important; /* 正社員 */
+}
+.employment-type.part-time-color {
+    background-color: #FFC107 !important; /* パート・アルバイト */
+}
+.employment-type.contract-color {
+    background-color: #9C27B0 !important; /* 契約社員 */
+}
+.employment-type.temporary-color {
+    background-color: #FF5722 !important; /* 派遣社員 */
+}
+
+/* 施設アイコン関連スタイル */
+.facility-icons {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+.facility-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 60px;
+    background-color: #fff;
+}
+.facility-icon.red-icon {
+    border-color: #FF5252;
+}
+.facility-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+/* 施設アイコンのテキストを非表示 */
+.facility-icon span {
+    display: none;
+}
+
+/* 求人カードのスタイル */
+.job-card {
+    background-color: white;
+    border-radius: 15px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    width: 100%;
+    max-width: 1000px;
+    overflow: hidden;
+    padding: 20px;
+    margin-bottom: 30px;
+}
+
+.job-content {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+/* 左側のスタイル */
+.left-content {
+    width: 30%;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.job-image {
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.job-image img {
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+}
+
+.tags-container {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 5px;
+    justify-content: flex-start;
+    width: 100%;
+}
+
+.tag {
+    background-color: #fff;
+    border: 1px solid #FFB74D;
+    color: #FF9800;
+    padding: 3px 5px;
+    border-radius: 20px;
+    font-size: 10px;
+    white-space: nowrap;
+    flex: 1;
+    text-align: center;
+}
+
+.tag.premium {
+    background-color: #fff;
+    border: 1px solid #FFA000;
+    color: #FFA000;
+}
+
+/* 右側のスタイル */
+.right-content {
+    width: 70%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.company-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.company-name {
+    color: #666;
+    font-size: 14px;
+    text-align: left;
+    margin-left: 0;
+    padding-left: 0;
+}
+
+.job-title {
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.job-subtitle {
+    font-size: 16px;
+    margin-bottom: 10px;
+}
+
+.job-description {
+    font-size: 14px;
+    color: #333;
+    line-height: 1.6;
+}
+
+/* 区切り線 */
+.divider {
+    height: 1px;
+    background-color: #eee;
+    margin: 15px 0;
+}
+
+.job-info {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.info-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.info-icon {
+    width: 20px;
+    color: #999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ボタンエリア */
+.buttons-container {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+}
+
+.keep-button {
+    background-color: #fff;
+    border: 1px solid #FFB74D;
+    color: #FF9800;
+    padding: 15px 20px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    width: 45%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.keep-button .star {
+    color: #FFB74D;
+    margin-right: 10px;
+}
+
+.keep-button.kept {
+    background-color: #FFF8E1;
+}
+
+.detail-view-button {
+    background-color: #26A69A;
+    border: none;
+    color: white;
+    padding: 15px 20px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    width: 45%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+    .job-content {
+        flex-direction: column;
+    }
+    
+    .left-content, .right-content {
+        width: 100%;
+    }
+    
+    .buttons-container {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .keep-button, .detail-view-button {
+        width: 100%;
+    }
+}
+
+/* マイページでの追加スタイル */
+.more-link {
+    text-align: center;
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
+
+.no-jobs, .no-profile-info {
+    background-color: #f8f9fa;
+    padding: 15px;
+    text-align: center;
+    border-radius: 5px;
+    color: #666;
+}
+</style>
+
+<!-- キープボタン用JavaScript -->
+<script>
+jQuery(document).ready(function($) {
+    // キープボタン機能
+    $('.keep-button').on('click', function() {
+        // リンクでない場合のみ処理（ログイン済みユーザー用）
+        if (!$(this).attr('href')) {
+            var jobId = $(this).data('job-id');
+            var $button = $(this);
+            
+            // AJAXでキープ状態を切り替え
+            $.ajax({
+                url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                type: 'POST',
+                data: {
+                    action: 'toggle_job_favorite',
+                    job_id: jobId,
+                    nonce: '<?php echo wp_create_nonce('job_favorite_nonce'); ?>'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        if (response.data.status === 'added') {
+                            $button.addClass('kept');
+                            $button.html('<span class="star"><i class="fa-solid fa-star"></i></span> キープ済み');
+                        } else {
+                            $button.removeClass('kept');
+                            $button.html('<span class="star"><i class="fa-solid fa-star"></i></span> キープ');
+                        }
+                    }
+                }
+            });
+        }
+    });
+});
+</script>
                         <?php
                         break;
                 }

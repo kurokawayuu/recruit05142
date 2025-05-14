@@ -318,7 +318,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <span class="dashicons dashicons-heart"></span>
     </button>
 <?php else: ?>
-    <a href="<?php echo wp_login_url(get_permalink()); ?>" class="favorite-button" title="ログインしてお気に入りに追加">
+    <a href="<?php echo home_url('/register/'); ?>" class="favorite-button" title="会員登録してお気に入りに追加">
         <span class="dashicons dashicons-heart"></span>
     </a>
 <?php endif; ?>

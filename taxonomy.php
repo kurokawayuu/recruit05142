@@ -343,7 +343,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <?php echo $is_favorite ? 'キープ済み' : 'キープ'; ?>
                             </button>
                         <?php else: ?>
-                            <a href="<?php echo wp_login_url(get_permalink()); ?>" class="keep-button">
+                            <a href="<?php echo home_url('/register/'); ?>" class="keep-button">
                                 <span class="star"></span>キープ
                             </a>
                         <?php endif; ?>
