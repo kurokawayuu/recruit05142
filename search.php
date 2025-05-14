@@ -307,16 +307,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     <!-- ボタンエリア -->
                     <div class="buttons-container">
-                        <?php if (is_user_logged_in()): 
-                            // お気に入り状態の確認
-                            $user_id = get_current_user_id();
-                            $favorites = get_user_meta($user_id, 'job_favorites', true);
-                            $is_favorite = is_array($favorites) && in_array(get_the_ID(), $favorites);
-                        ?>
-                            <button class="keep-button <?php echo $is_favorite ? 'kept' : ''; ?>" data-job-id="<?php echo get_the_ID(); ?>">
-                                <span class="star"><i class="fa-solid fa-star"></i></span>
-                                <?php echo $is_favorite ? 'キープ済み' : 'キープ'; ?>
-                            </button>
+                        <!-- お気に入りボタン -->
+<?php if (is_user_logged_in()): 
+    // お気に入り状態の確認
+    $user_id = get_current_user_id();
+    $favorites = get_user_meta($user_id, 'user_favorites', true);
+    $is_favorite = is_array($favorites) && in_array(get_the_ID(), $favorites);
+?>
+    <button class="favorite-button <?php echo $is_favorite ? 'is-favorite' : ''; ?>" data-job-id="<?php echo get_the_ID(); ?>">
+        <span class="dashicons dashicons-heart"></span>
+    </button>
+<?php else: ?>
+    <a href="<?php echo wp_login_url(get_permalink()); ?>" class="favorite-button" title="ログインしてお気に入りに追加">
+        <span class="dashicons dashicons-heart"></span>
+    </a>
+<?php endif; ?>
                         <?php else: ?>
                             <a href="<?php echo wp_login_url(get_permalink()); ?>" class="keep-button">
                                 <span class="star"></span>キープ
@@ -420,37 +425,49 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <!-- キープボタン用JavaScriptコード -->
+<!-- お気に入りボタン用JavaScript -->
 <script>
 jQuery(document).ready(function($) {
-    // キープボタン機能
-    $('.keep-button').on('click', function() {
-        // リンクでない場合のみ処理（ログイン済みユーザー用）
-        if (!$(this).attr('href')) {
-            var jobId = $(this).data('job-id');
-            var $button = $(this);
-            
-            // AJAXでキープ状態を切り替え
-            $.ajax({
-                url: '<?php echo admin_url('admin-ajax.php'); ?>',
-                type: 'POST',
-                data: {
-                    action: 'toggle_job_favorite',
-                    job_id: jobId,
-                    nonce: '<?php echo wp_create_nonce('job_favorite_nonce'); ?>'
-                },
-                success: function(response) {
-                    if (response.success) {
-                        if (response.data.status === 'added') {
-                            $button.addClass('kept');
-                            $button.html('<span class="star"><i class="fa-solid fa-star"></i></span> キープ済み');
-                        } else {
-                            $button.removeClass('kept');
-                            $button.html('<span class="star"><i class="fa-solid fa-star"></i></span> キープ');
-                        }
-                    }
-                }
-            });
+    $('.favorite-button').on('click', function(e) {
+        e.preventDefault();
+        
+        // ログインが必要な場合はリンクとして動作
+        if ($(this).is('a')) {
+            return true;
         }
+        
+        var button = $(this);
+        var jobId = button.data('job-id');
+        
+        $.ajax({
+            url: '<?php echo admin_url('admin-ajax.php'); ?>',
+            type: 'POST',
+            data: {
+                action: 'toggle_job_favorite',
+                job_id: jobId,
+                nonce: '<?php echo wp_create_nonce('job_favorite_nonce'); ?>'
+            },
+            beforeSend: function() {
+                button.prop('disabled', true).css('opacity', '0.5');
+            },
+            success: function(response) {
+                if (response.success) {
+                    if (response.data.status === 'added') {
+                        button.addClass('is-favorite');
+                    } else {
+                        button.removeClass('is-favorite');
+                    }
+                } else {
+                    alert('エラー: ' + response.data.message);
+                }
+            },
+            error: function() {
+                alert('通信エラーが発生しました。');
+            },
+            complete: function() {
+                button.prop('disabled', false).css('opacity', '1');
+            }
+        });
     });
 });
 </script>

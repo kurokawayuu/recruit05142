@@ -570,9 +570,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="buttons-container">
                         <?php if (is_user_logged_in()): 
                             // お気に入り状態の確認
-                            $user_id = get_current_user_id();
-                            $favorites = get_user_meta($user_id, 'job_favorites', true);
-                            $is_favorite = is_array($favorites) && in_array(get_the_ID(), $favorites);
+                            // 271行目付近
+$user_id = get_current_user_id();
+$favorites = get_user_meta($user_id, 'user_favorites', true); // 'job_favorites'から'user_favorites'に変更
+$is_favorite = is_array($favorites) && in_array(get_the_ID(), $favorites);
                         ?>
                             <button class="keep-button <?php echo $is_favorite ? 'kept' : ''; ?>" data-job-id="<?php echo get_the_ID(); ?>">
                                 <span class="star"></span>
