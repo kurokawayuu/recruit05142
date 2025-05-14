@@ -1756,3 +1756,67 @@ function breadcrumb() {
     
     echo '</div>';
 }
+
+/**
+ * お気に入り求人の追加・削除処理（修正版）
+ */
+add_action('wp_ajax_toggle_job_favorite', 'handle_toggle_job_favorite');
+add_action('wp_ajax_nopriv_toggle_job_favorite', 'handle_toggle_job_favorite');
+
+function handle_toggle_job_favorite() {
+    // ナンス検証（複数のnonceに対応）
+    $nonce_keys = array('job_favorite_nonce', 'favorites_nonce');
+    $nonce_valid = false;
+    
+    foreach ($nonce_keys as $key) {
+        if (wp_verify_nonce($_POST['nonce'], $key)) {
+            $nonce_valid = true;
+            break;
+        }
+    }
+    
+    if (!$nonce_valid) {
+        wp_send_json_error(array('message' => 'セキュリティチェックに失敗しました。'));
+    }
+    
+    if (!is_user_logged_in()) {
+        wp_send_json_error(array('message' => 'ログインが必要です。'));
+    }
+    
+    $user_id = get_current_user_id();
+    $job_id = intval($_POST['job_id']);
+    
+    if (!$job_id) {
+        wp_send_json_error(array('message' => '無効な求人IDです。'));
+    }
+    
+    // 現在のお気に入りリストを取得（キーを'user_favorites'に統一）
+    $favorites = get_user_meta($user_id, 'user_favorites', true);
+    if (!is_array($favorites)) {
+        $favorites = array();
+    }
+    
+    // お気に入りの状態を切り替え
+    if (in_array($job_id, $favorites)) {
+        // お気に入りから削除
+        $favorites = array_filter($favorites, function($id) use ($job_id) {
+            return $id != $job_id;
+        });
+        $favorited = false;
+        $status = 'removed';
+    } else {
+        // お気に入りに追加
+        $favorites[] = $job_id;
+        $favorited = true;
+        $status = 'added';
+    }
+    
+    // ユーザーメタデータを更新
+    update_user_meta($user_id, 'user_favorites', array_values($favorites));
+    
+    wp_send_json_success(array(
+        'favorited' => $favorited,
+        'status' => $status,
+        'message' => $favorited ? 'お気に入りに追加しました。' : 'お気に入りから削除しました。'
+    ));
+}
